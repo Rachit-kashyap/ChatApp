@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Woho</title>
+  <style>
+    body {
+      background-color: #0a1f44;
+      color: white;
+      font-family: Arial, sans-serif;
+      padding: 20px;
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 30px;
+      color: #ffffff;
+    }
+    ul {
+      list-style-type: none;
+      padding: 0;
+      margin-bottom: 20px;
+    }
+    input[type="text"], input[type="number"] {
+      width: calc(100% - 22px);
+      padding: 10px;
+      margin: 10px 0;
+      border: none;
+      border-radius: 5px;
+      font-size: 16px;
+    }
+    button {
+      padding: 10px 15px;
+      margin-top: 10px;
+      background-color: white;
+      color: #0a1f44;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: background-color 0.3s;
+    }
+    button:hover {
+      background-color: #dbe9ff;
+    }
+    #messages {
+      background-color: #112e64;
+      padding: 15px;
+      border-radius: 10px;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    #messages li {
+      margin-bottom: 10px;
+    }
+    .radio-group label {
+      display: block;
+      margin: 5px 0;
+    }
+    .radio-group input[type="radio"] {
+      margin-right: 8px;
+    }
+    .delete-btn {
+      background-color: red;
+      color: white;
+      margin-left: 10px;
+      font-size: 14px;
+      padding: 5px 10px;
+    }
+  </style>
+</head>
+<body>
+  <h1><%= user.name %></h1>
+
+  <% if (contacts && contacts.length > 0) { %>
+    <div class="radio-group">
+      <% contacts.forEach((info) => { %>
+        <label>
+          <input type="radio" name="gender" value="<%= info.phoneNumber %>">
+          <%= info.name %> (<%= info.phoneNumber %>)
+          <button class="delete-btn" data-phone="<%= info.phoneNumber %>">❌</button>
+
+        </label>
+      <% }) %>
+    </div>
+  <% } else { %>
+    <p>No contacts added. Please add a contact.</p>
+  <% } %>
+
+  <input type="text" id="add-name" placeholder="Add name">
+  <input type="text" id="add-number" placeholder="Add number">
+  <button id="add">Add</button>
+
+  <input type="text" id="receiver" placeholder="Type a receiver number">
+  <input type="hidden" id="sender" value="<%= user ? user.phoneNumber : '' %>">
+  <input type="text" id="message" placeholder="Type a message">
+  <button onclick="sendMessage()">Send</button>
+
+  <ul id="messages"></ul>
+
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <script>
+    const socket = io();
+    const messageList = document.getElementById("messages");
+    const sender = document.getElementById("sender").value;
+
+    let messageArr = [];
+
+    socket.on("connect", () => {
+      if (sender) {
+        socket.emit("conn", sender);
+      }
+    });
+
+    socket.on("message", ({ message, name }) => {
+      messageArr.push({ name, message });
+      const li = document.createElement("li");
+      li.textContent = `${name}: ${message}`;
+      messageList.appendChild(li);
+    });
+
+    function sendMessage() {
+      const message = document.getElementById("message").value;
+      const receiver = document.getElementById("receiver").value;
+
+      if (message && receiver) {
+        socket.emit("message", { message, receiver, sender });
+        const li = document.createElement("li");
+        li.textContent = `You: ${message}`;
+        messageList.appendChild(li);
+        document.getElementById("message").value = "";
+      }
+    }
+
+    document.getElementById("add").addEventListener("click", async () => {
+      let number = document.getElementById("add-number").value;
+      let name = document.getElementById("add-name").value;
+
+      try {
+        let res = await fetch("http://localhost:3000/user/add-contact", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phoneNumber: number, name })
+        });
+
+        let data = await res.json();
+        alert(data.message || "Contact added");
+        location.reload();
+      } catch (err) {
+        alert("Failed to add contact");
+        console.error(err);
+      }
+    });
+
+    document.querySelectorAll("input[name='gender']").forEach((radio) => {
+      radio.addEventListener("click", () => {
+        document.getElementById("receiver").value = radio.value;
+      });
+    });
+
+    document.querySelectorAll(".delete-btn").forEach((btn) => {
+  btn.addEventListener("click", async () => {
+    const phoneNumber = btn.dataset.phone;
+    if (!confirm("Are you sure you want to delete this contact?")) return;
+
+    try {
+      const res = await fetch(`http://localhost:3000/user/delete-contact/${phoneNumber}`, {
+        method: "DELETE",
+      });
+
+      const data = await res.json();
+      alert(data.message || "Contact deleted");
+      location.reload();
+    } catch (err) {
+      alert("Delete failed");
+      console.error(err);
+    }
+  });
+});
+
+  </script>
+</body>
+</html>
