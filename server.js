@@ -31,6 +31,11 @@ app.use("/user", userRoutes);
 
 singleChat(io); 
 
+app.get("/",(req,res)=>{
+    res.redirect("/api/auth/login")
+})
+
+
 server.listen(PORT, () => {
     console.log(`Server is running on http://localhost:${PORT}`);
 });
